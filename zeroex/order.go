@@ -319,28 +319,11 @@ func (o *Order) ComputeOrderHash() (common.Hash, error) {
 		VerifyingContract: o.ExchangeAddress.Hex(),
 	}
 
-	var message = map[string]interface{}{
-		"makerAddress":          o.MakerAddress.Hex(),
-		"takerAddress":          o.TakerAddress.Hex(),
-		"senderAddress":         o.SenderAddress.Hex(),
-		"feeRecipientAddress":   o.FeeRecipientAddress.Hex(),
-		"makerAssetData":        o.MakerAssetData,
-		"makerFeeAssetData":     o.MakerFeeAssetData,
-		"takerAssetData":        o.TakerAssetData,
-		"takerFeeAssetData":     o.TakerFeeAssetData,
-		"salt":                  o.Salt.String(),
-		"makerFee":              o.MakerFee.String(),
-		"takerFee":              o.TakerFee.String(),
-		"makerAssetAmount":      o.MakerAssetAmount.String(),
-		"takerAssetAmount":      o.TakerAssetAmount.String(),
-		"expirationTimeSeconds": o.ExpirationTimeSeconds.String(),
-	}
-
 	var typedData = gethsigner.TypedData{
 		Types:       EIP712Types,
 		PrimaryType: TypeOrder,
 		Domain:      domain,
-		Message:     message,
+		Message:     o.Map(),
 	}
 
 	domainSeparator, err := typedData.HashStruct(TypeEIP712Domain, typedData.Domain.Map())
@@ -356,6 +339,26 @@ func (o *Order) ComputeOrderHash() (common.Hash, error) {
 	hash := common.BytesToHash(hashBytes)
 	o.hash = &hash
 	return hash, nil
+}
+
+// Map returns an un-typed map representation of the order
+func (o *Order) Map() map[string]interface{} {
+	return map[string]interface{}{
+		"makerAddress":          o.MakerAddress.Hex(),
+		"takerAddress":          o.TakerAddress.Hex(),
+		"senderAddress":         o.SenderAddress.Hex(),
+		"feeRecipientAddress":   o.FeeRecipientAddress.Hex(),
+		"makerAssetData":        o.MakerAssetData,
+		"makerFeeAssetData":     o.MakerFeeAssetData,
+		"takerAssetData":        o.TakerAssetData,
+		"takerFeeAssetData":     o.TakerFeeAssetData,
+		"salt":                  o.Salt.String(),
+		"makerFee":              o.MakerFee.String(),
+		"takerFee":              o.TakerFee.String(),
+		"makerAssetAmount":      o.MakerAssetAmount.String(),
+		"takerAssetAmount":      o.TakerAssetAmount.String(),
+		"expirationTimeSeconds": o.ExpirationTimeSeconds.String(),
+	}
 }
 
 // SignOrder signs the 0x order with the supplied Signer
