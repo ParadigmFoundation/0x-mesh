@@ -45,22 +45,6 @@ type SignedOrder struct {
 	Signature []byte `json:"signature"`
 }
 
-// SignatureType represents the type of 0x signature encountered
-type SignatureType uint8
-
-// SignatureType values
-const (
-	IllegalSignature SignatureType = iota
-	InvalidSignature
-	EIP712Signature
-	EthSignSignature
-	WalletSignature
-	ValidatorSignature
-	PreSignedSignature
-	EIP1271WalletSignature
-	NSignatureTypesSignature
-)
-
 // OrderStatus represents the status of an order as returned from the 0x smart contracts
 // as part of OrderInfo
 type OrderStatus uint8
@@ -316,85 +300,6 @@ const (
 	ESStoppedWatching = OrderEventEndState("STOPPED_WATCHING")
 )
 
-var eip712OrderTypes = gethsigner.Types{
-	"EIP712Domain": {
-		{
-			Name: "name",
-			Type: "string",
-		},
-		{
-			Name: "version",
-			Type: "string",
-		},
-		{
-			Name: "chainId",
-			Type: "uint256",
-		},
-		{
-			Name: "verifyingContract",
-			Type: "address",
-		},
-	},
-	"Order": {
-		{
-			Name: "makerAddress",
-			Type: "address",
-		},
-		{
-			Name: "takerAddress",
-			Type: "address",
-		},
-		{
-			Name: "feeRecipientAddress",
-			Type: "address",
-		},
-		{
-			Name: "senderAddress",
-			Type: "address",
-		},
-		{
-			Name: "makerAssetAmount",
-			Type: "uint256",
-		},
-		{
-			Name: "takerAssetAmount",
-			Type: "uint256",
-		},
-		{
-			Name: "makerFee",
-			Type: "uint256",
-		},
-		{
-			Name: "takerFee",
-			Type: "uint256",
-		},
-		{
-			Name: "expirationTimeSeconds",
-			Type: "uint256",
-		},
-		{
-			Name: "salt",
-			Type: "uint256",
-		},
-		{
-			Name: "makerAssetData",
-			Type: "bytes",
-		},
-		{
-			Name: "takerAssetData",
-			Type: "bytes",
-		},
-		{
-			Name: "makerFeeAssetData",
-			Type: "bytes",
-		},
-		{
-			Name: "takerFeeAssetData",
-			Type: "bytes",
-		},
-	},
-}
-
 // ResetHash resets the cached order hash. Usually only required for testing.
 func (o *Order) ResetHash() {
 	o.hash = nil
@@ -408,8 +313,8 @@ func (o *Order) ComputeOrderHash() (common.Hash, error) {
 
 	chainID := math.NewHexOrDecimal256(o.ChainID.Int64())
 	var domain = gethsigner.TypedDataDomain{
-		Name:              "0x Protocol",
-		Version:           "3.0.0",
+		Name:              ZeroExProtocolName,
+		Version:           ZeroExProtocolVersion,
 		ChainId:           chainID,
 		VerifyingContract: o.ExchangeAddress.Hex(),
 	}
@@ -432,13 +337,13 @@ func (o *Order) ComputeOrderHash() (common.Hash, error) {
 	}
 
 	var typedData = gethsigner.TypedData{
-		Types:       eip712OrderTypes,
-		PrimaryType: "Order",
+		Types:       EIP712Types,
+		PrimaryType: TypeOrder,
 		Domain:      domain,
 		Message:     message,
 	}
 
-	domainSeparator, err := typedData.HashStruct("EIP712Domain", typedData.Domain.Map())
+	domainSeparator, err := typedData.HashStruct(TypeEIP712Domain, typedData.Domain.Map())
 	if err != nil {
 		return common.Hash{}, err
 	}
@@ -468,15 +373,9 @@ func SignOrder(signer signer.Signer, order *Order) (*SignedOrder, error) {
 		return nil, err
 	}
 
-	// Generate 0x EthSign Signature (append the signature type byte)
-	signature := make([]byte, 66)
-	signature[0] = ecSignature.V
-	copy(signature[1:33], ecSignature.R[:])
-	copy(signature[33:65], ecSignature.S[:])
-	signature[65] = byte(EthSignSignature)
 	signedOrder := &SignedOrder{
 		Order:     *order,
-		Signature: signature,
+		Signature: ECSignatureToBytes(ecSignature, EthSignSignature),
 	}
 	return signedOrder, nil
 }
